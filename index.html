@@ -257,7 +257,9 @@ if(currentDate !== today){
         );
     }
 
-    localStorage.removeItem("todaySales");
+    if(!currentDate){
+    localStorage.setItem("currentDate", today);
+}
 
     data = [];
 
