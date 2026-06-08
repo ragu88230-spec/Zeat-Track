@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>JuiceTrack</title>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:Arial;
+}
+
+body{
+    background:#f4f6f9;
+    padding:20px;
+}
+
+.container{
+    max-width:1200px;
+    margin:auto;
+    background:white;
+    padding:20px;
+    border-radius:12px;
+    box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+h1{
+    text-align:center;
+    color:#1b5e20;
+    margin-bottom:20px;
+}
+
+.form-box{
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(180px,1fr));
+    gap:10px;
+    margin-bottom:20px;
+}
+
+input{
+    padding:12px;
+    border:1px solid #ccc;
+    border-radius:8px;
+}
+
+button{
+    padding:12px;
+    border:none;
+    border-radius:8px;
+    background:#2e7d32;
+    color:white;
+    cursor:pointer;
+}
+
+button:hover{
+    background:#1b5e20;
+}
+
+.summary{
+    display:flex;
+    gap:20px;
+    margin-bottom:20px;
+    flex-wrap:wrap;
+}
+
+.card{
+    flex:1;
+    min-width:220px;
+    background:#e8f5e9;
+    padding:20px;
+    border-radius:10px;
+    text-align:center;
+}
+
+.card h2{
+    margin-bottom:10px;
+    color:#1b5e20;
+}
+
+table{
+    width:100%;
+    border-collapse:collapse;
+    margin-top:20px;
+}
+
+table th{
+    background:#2e7d32;
+    color:white;
+    padding:12px;
+}
+
+table td{
+    padding:12px;
+    border-bottom:1px solid #ddd;
+    text-align:center;
+}
+
+.delete-btn{
+    background:red;
+}
+
+.report-box{
+    margin-top:20px;
+    background:#e3f2fd;
+    padding:15px;
+    border-radius:10px;
+}
+
+.top-selling{
+    margin-top:20px;
+    background:#fff3cd;
+    padding:15px;
+    border-radius:10px;
+    text-align:center;
+    font-size:18px;
+}
+
+.report-buttons{
+    display:flex;
+    gap:10px;
+    flex-wrap:wrap;
+    margin-top:15px;
+}
+
+#reportOutput{
+    margin-top:20px;
+    background:white;
+    padding:15px;
+    border-radius:10px;
+}
+
+</style>
+
+</head>
+<body>
+
+<div class="container">
+
+<h1>JuiceTrack - Sales & Profit Tracker</h1>
+
+<div class="form-box">
+
+<input type="text" id="juice" placeholder="Juice Name">
+
+<input type="number" id="cost" placeholder="Cost Price">
+
+<input type="number" id="price" placeholder="Selling Price">
+
+<input type="number" id="qty" placeholder="Quantity">
+
+<button onclick="addSale()">Add Sale</button>
+
+</div>
+
+<div class="summary">
+
+<div class="card">
+<h2>Total Sales</h2>
+<h3>₹<span id="totalSales">0</span></h3>
+</div>
+
+<div class="card">
+<h2>Total Profit</h2>
+<h3>₹<span id="totalProfit">0</span></h3>
+</div>
+
+</div>
+
+<table>
+
+<thead>
+<tr>
+<th>Juice</th>
+<th>Cost</th>
+<th>Selling</th>
+<th>Qty</th>
+<th>Total</th>
+<th>Profit</th>
+<th>Action</th>
+</tr>
+</thead>
+
+<tbody id="list"></tbody>
+
+</table>
+
+<div class="report-box">
+
+<h2>Previous Reports</h2>
+
+<div id="reportList"></div>
+
+<div class="report-buttons">
+
+<button onclick="dailyReport()">Daily Report</button>
+
+<button onclick="weeklyReport()">Weekly Report</button>
+
+<button onclick="monthlyReport()">Monthly Report</button>
+
+<button onclick="downloadReport()">Download</button>
+
+<button onclick="printReport()">Print</button>
+
+</div>
+
+<div id="reportOutput"></div>
+
+</div>
+
+<div class="top-selling">
+🏆 Top Selling Juice:
+<span id="topJuice">No Data</span>
+</div>
+
+</div>
+
+<script>
+
+let totalSales = 0;
+let totalProfit = 0;
+
+let today = new Date().toLocaleDateString();
+
+let currentDate = localStorage.getItem("currentDate");
+
+let reports = JSON.parse(localStorage.getItem("reports")) || {};
+
+let data = JSON.parse(localStorage.getItem("todaySales")) || [];
+
+if(currentDate !== today){
+
+    if(currentDate && data.length > 0){
+
+        let oldSales = 0;
+        let oldProfit = 0;
+
+        data.forEach(item => {
+
+            oldSales += item.total;
+
+            oldProfit += item.profit;
+        });
+
+        reports[currentDate] = {
+            sales: oldSales,
+            profit: oldProfit
+        };
+
+        localStorage.setItem(
+            "reports",
+            JSON.stringify(reports)
+        );
+    }
+
+    localStorage.removeItem("todaySales");
+
+    data = [];
+
+    localStorage.setItem("currentDate", today);
+}
+
+window.onload = function(){
+
+    data.forEach(item => renderRow(item));
+
+    showReports();
+
+    updateTopSelling();
+}
+
+function addSale(){
+
+    let juice =
+        document.getElementById("juice").value;
+
+    let cost =
+        Number(document.getElementById("cost").value);
+
+    let price =
+        Number(document.getElementById("price").value);
+
+    let qty =
+        Number(document.getElementById("qty").value);
+
+    if(
+        juice === "" ||
+        cost === 0 ||
+        price === 0 ||
+        qty === 0
+    ){
+
+        alert("Please fill all fields");
+
+        return;
+    }
+
+    let total = price * qty;
+
+    let profit = (price - cost) * qty;
+
+    let item = {
+        juice,
+        cost,
+        price,
+        qty,
+        total,
+        profit
+    };
+
+    data.push(item);
+
+    localStorage.setItem(
+        "todaySales",
+        JSON.stringify(data)
+    );
+
+    renderRow(item);
+
+    updateTopSelling();
+
+    clearInputs();
+}
+
+function renderRow(item){
+
+    totalSales += item.total;
+
+    totalProfit += item.profit;
+
+    document.getElementById("totalSales").innerText =
+        totalSales;
+
+    document.getElementById("totalProfit").innerText =
+        totalProfit;
+
+    let row = document.createElement("tr");
+
+    row.innerHTML = `
+        <td>${item.juice}</td>
+        <td>₹${item.cost}</td>
+        <td>₹${item.price}</td>
+        <td>${item.qty}</td>
+        <td>₹${item.total}</td>
+        <td>₹${item.profit}</td>
+        <td>
+            <button class="delete-btn"
+            onclick="deleteRow(this, ${item.total}, ${item.profit}, '${item.juice}')">
+            Delete
+            </button>
+        </td>
+    `;
+
+    document.getElementById("list")
+        .appendChild(row);
+}
+
+function deleteRow(btn,total,profit,juice){
+
+    btn.parentElement.parentElement.remove();
+
+    totalSales -= total;
+
+    totalProfit -= profit;
+
+    document.getElementById("totalSales").innerText =
+        totalSales;
+
+    document.getElementById("totalProfit").innerText =
+        totalProfit;
+
+    data = data.filter(item =>
+        !(item.juice === juice &&
+          item.total === total)
+    );
+
+    localStorage.setItem(
+        "todaySales",
+        JSON.stringify(data)
+    );
+
+    updateTopSelling();
+}
+
+function updateTopSelling(){
+
+    if(data.length === 0){
+
+        document.getElementById("topJuice")
+            .innerText = "No Data";
+
+        return;
+    }
+
+    let juiceCount = {};
+
+    data.forEach(item => {
+
+        if(juiceCount[item.juice]){
+
+            juiceCount[item.juice] += item.qty;
+
+        }else{
+
+            juiceCount[item.juice] = item.qty;
+        }
+    });
+
+    let top = Object.keys(juiceCount)
+        .reduce((a,b)=>
+            juiceCount[a] > juiceCount[b]
+            ? a : b
+        );
+
+    document.getElementById("topJuice")
+        .innerText = top;
+}
+
+function showReports(){
+
+    let reportBox =
+        document.getElementById("reportList");
+
+    reportBox.innerHTML = "";
+
+    for(let date in reports){
+
+        let p = document.createElement("p");
+
+        p.innerHTML = `
+            <strong>${date}</strong>
+            | Sales: ₹${reports[date].sales}
+            | Profit: ₹${reports[date].profit}
+        `;
+
+        reportBox.appendChild(p);
+    }
+}
+
+function dailyReport(){
+
+    let output = `
+        <h3>Daily Report (${today})</h3>
+        <p>Total Sales: ₹${totalSales}</p>
+        <p>Total Profit: ₹${totalProfit}</p>
+    `;
+
+    document.getElementById("reportOutput")
+        .innerHTML = output;
+}
+
+function weeklyReport(){
+
+    let weeklySales = totalSales;
+
+    let weeklyProfit = totalProfit;
+
+    for(let date in reports){
+
+        weeklySales += reports[date].sales;
+
+        weeklyProfit += reports[date].profit;
+    }
+
+    let output = `
+        <h3>Weekly Report</h3>
+        <p>Total Sales: ₹${weeklySales}</p>
+        <p>Total Profit: ₹${weeklyProfit}</p>
+    `;
+
+    document.getElementById("reportOutput")
+        .innerHTML = output;
+}
+
+function monthlyReport(){
+
+    let monthlySales = totalSales;
+
+    let monthlyProfit = totalProfit;
+
+    for(let date in reports){
+
+        monthlySales += reports[date].sales;
+
+        monthlyProfit += reports[date].profit;
+    }
+
+    let output = `
+        <h3>Monthly Report</h3>
+        <p>Total Sales: ₹${monthlySales}</p>
+        <p>Total Profit: ₹${monthlyProfit}</p>
+    `;
+
+    document.getElementById("reportOutput")
+        .innerHTML = output;
+}
+
+function downloadReport(){
+
+    let text =
+        document.getElementById("reportOutput")
+        .innerText;
+
+    if(text === ""){
+
+        alert("Generate report first");
+
+        return;
+    }
+
+    let blob = new Blob(
+        [text],
+        {type:"text/plain"}
+    );
+
+    let link = document.createElement("a");
+
+    link.href =
+        URL.createObjectURL(blob);
+
+    link.download = "Juice_Report.txt";
+
+    link.click();
+}
+
+function printReport(){
+
+    let content =
+        document.getElementById("reportOutput")
+        .innerHTML;
+
+    if(content === ""){
+
+        alert("Generate report first");
+
+        return;
+    }
+
+    let printWindow = window.open(
+        "",
+        "",
+        "width=800,height=600"
+    );
+
+    printWindow.document.write(`
+        <html>
+        <head>
+            <title>Print Report</title>
+        </head>
+        <body>
+            <h1>JuiceTrack Report</h1>
+            ${content}
+        </body>
+        </html>
+    `);
+
+    printWindow.document.close();
+
+    printWindow.print();
+}
+
+function clearInputs(){
+
+    document.getElementById("juice").value = "";
+
+    document.getElementById("cost").value = "";
+
+    document.getElementById("price").value = "";
+
+    document.getElementById("qty").value = "";
+}
+
+</script>
+
+</body>
+</html>
